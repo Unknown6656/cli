@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cli/cli/internal/ghinstance"
 	"github.com/cli/cli/internal/ghrepo"
 	"github.com/shurcooL/githubv4"
 )
@@ -190,6 +191,25 @@ type RepoNetworkResult struct {
 // RepoNetwork inspects the relationship between multiple GitHub repositories
 func RepoNetwork(client *Client, repos []ghrepo.Interface) (RepoNetworkResult, error) {
 	var hostname string
+	// If the list repos features a mix of hostnames, we need to fall back to OverridableDefault. If all the hostnames agree, use that hostname.
+	if len(repos) == 0 {
+		return RepoNetworkResult{}, errors.New("no local git remotes found")
+	}
+
+	foundHostnames := map[string]bool{}
+
+	for _, repo := range repos {
+		foundHostnames[repo.RepoHost()] = true
+	}
+
+	if len(foundHostnames) == 1 {
+		for h := range foundHostnames {
+			hostname = h
+		}
+	} else {
+		hostname = ghinstance.OverridableDefault()
+	}
+
 	if len(repos) > 0 {
 		hostname = repos[0].RepoHost()
 	}
